@@ -120,7 +120,7 @@ if(!company)return bad("congTyKhac","Vui lòng nhập Công Ty Làm Gần Nhất
 
 const payload={"Số CCCD":cccd,"Họ và Tên":titleVI($("hoTen").value),"Số Điện Thoại":phone,"Số Điện Thoại Người Thân":rel,"Tỉnh/Thành Phố":$("tinhThanh").value,"Xã/Phường/Đặc Khu":titleVI($("xaPhuong").value),"Thôn/Tổ Dân Phố":titleVI($("thonToDanPho").value),"Trình Độ Học Vấn":$("trinhDo").value,"Tên Trường":titleVI($("tenTruong").value),"Mã Số BHXH":bhxh,"Kênh Tuyển Dụng":channel,"Công Ty Làm Gần Nhất":company};
 const btn=$("submitBtn");btn.disabled=true;btn.innerHTML='<span class="spinner"></span>ĐANG LƯU...';show("Đang kiểm tra CCCD và ghi dữ liệu vào Google Sheets...","wait");
-fetch("https://script.google.com/macros/s/AKfycbxj-755FHzKUkQzy0h7f2qd66UYU2MgyD7aiZk8ugina6U_mPpaSGehSEjc961ZdhnBWw/exec",{
+fetch("https://script.google.com/macros/s/AKfycbwGy_wVHRvjAW4hfDI1JJCIsD_CyW3nIbCY5VoSucUc1EXjFGGJNRNm_1MbRRW2xgPY8A/exec",{
   method:"POST",
   headers:{"Content-Type":"text/plain;charset=utf-8"},
   body:JSON.stringify(payload)
