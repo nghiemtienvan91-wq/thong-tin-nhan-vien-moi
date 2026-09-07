@@ -122,7 +122,10 @@ const payload={"Số CCCD":cccd,"Họ và Tên":titleVI($("hoTen").value),"Số 
 const btn=$("submitBtn");btn.disabled=true;btn.innerHTML='<span class="spinner"></span>ĐANG LƯU...';show("Đang kiểm tra CCCD và ghi dữ liệu vào Google Sheets...","wait");
 fetch("https://script.google.com/macros/s/AKfycbwGy_wVHRvjAW4hfDI1JJCIsD_CyW3nIbCY5VoSucUc1EXjFGGJNRNm_1MbRRW2xgPY8A/exec",{
   method:"POST",
+  redirect:"follow",
   headers:{"Content-Type":"text/plain;charset=utf-8"},
+  redirect:"follow",
+  credentials:"omit",
   body:JSON.stringify(payload)
 }).then(async response=>{
   let res=null;
