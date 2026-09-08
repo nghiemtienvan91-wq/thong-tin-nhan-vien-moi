@@ -132,33 +132,85 @@ const btn=$("submitBtn");btn.disabled=true;btn.innerHTML='<span class="spinner">
 
 // Gửi bằng HTML form tới iframe ẩn để tránh lỗi CORS của Google Apps Script.
 const API_URL="https://script.google.com/macros/s/AKfycbwGy_wVHRvjAW4hfDI1JJCIsD_CyW3nIbCY5VoSucUc1EXjFGGJNRNm_1MbRRW2xgPY8A/exec";
-const frame=document.createElement("iframe");
-frame.name="gs_submit_frame_"+Date.now();
-frame.style.display="none";
-document.body.appendChild(frame);
-const form=document.createElement("form");
-form.method="POST";
-form.action=API_URL;
-form.target=frame.name;
-form.style.display="none";
-Object.keys(payload).forEach(k=>{const input=document.createElement("input");input.type="hidden";input.name=k;input.value=payload[k]??"";form.appendChild(input);});
-document.body.appendChild(form);
-let finished=false;
-frame.onload=function(){
-  if(finished)return;
-  finished=true;
-  btn.disabled=false;btn.textContent="GỬI THÔNG TIN";
-  show("✅ Đã gửi hồ sơ lên máy chủ. Vui lòng kiểm tra Google Sheets để xác nhận dữ liệu đã được ghi.","ok");
-  e.target.reset();
-  setTimeout(()=>{form.remove();frame.remove()},1500);
-};
-form.submit();
-setTimeout(()=>{
-  if(!finished){
-    finished=true;btn.disabled=false;btn.textContent="GỬI THÔNG TIN";
-    show("⚠️ Đã gửi yêu cầu. Nếu Google Sheets chưa có dữ liệu sau 10 giây, hãy kiểm tra lại Apps Script deployment.","err");
-    setTimeout(()=>{form.remove();frame.remove()},1500);
+let submitFrame=null;
+let submitForm=null;
+let submitFinished=false;
+let submitTimer=null;
+
+function cleanupSubmit(){
+  if(submitTimer) clearTimeout(submitTimer);
+  submitTimer=null;
+  if(submitForm){ submitForm.remove(); submitForm=null; }
+  if(submitFrame){ submitFrame.remove(); submitFrame=null; }
+}
+
+function showServerResult(message, ok){
+  btn.disabled=false;
+  btn.textContent="GỬI THÔNG TIN";
+  show(message, ok ? "ok" : "err");
+}
+
+window.addEventListener("message",(event)=>{
+  if(!event.data || event.data.type!=="candidate_submit_result") return;
+  if(submitFinished) return;
+  submitFinished=true;
+
+  const result=event.data;
+
+  if(result.ok){
+    showServerResult(
+      "✅ GỬI THÀNH CÔNG! Hồ sơ đã được ghi vào Google Sheets."+
+      (result.timestamp ? " Thời gian: "+result.timestamp : ""),
+      true
+    );
+    e.target.reset();
+    $("thongTinGioiThieu").classList.add("hidden");
+    $("kenhKhac").classList.add("hidden");
+  }else{
+    const msg=result.duplicate
+      ? "⚠️ Hồ sơ chưa được ghi. CCCD này đã tồn tại trong Google Sheets."
+      : "❌ Gửi hồ sơ thất bại: "+(result.error || "Không xác định được lỗi máy chủ.");
+    showServerResult(msg,false);
   }
-},10000);
+
+  setTimeout(cleanupSubmit,1200);
+});
+
+submitFrame=document.createElement("iframe");
+submitFrame.name="gs_submit_frame_"+Date.now();
+submitFrame.style.display="none";
+document.body.appendChild(submitFrame);
+
+submitForm=document.createElement("form");
+submitForm.method="POST";
+submitForm.action=API_URL;
+submitForm.target=submitFrame.name;
+submitForm.style.display="none";
+
+Object.keys(payload).forEach(k=>{
+  const input=document.createElement("input");
+  input.type="hidden";
+  input.name=k;
+  input.value=payload[k]??"";
+  submitForm.appendChild(input);
+});
+
+document.body.appendChild(submitForm);
+btn.disabled=true;
+btn.textContent="ĐANG GỬI...";
+submitFinished=false;
+submitForm.submit();
+
+// Chỉ coi là thành công khi doPost() ghi Sheet xong và gửi postMessage.
+submitTimer=setTimeout(()=>{
+  if(submitFinished) return;
+  submitFinished=true;
+  showServerResult(
+    "⚠️ Chưa nhận được xác nhận từ máy chủ. Hãy kiểm tra Apps Script → Executions để xem lỗi và đảm bảo Web App đang chạy phiên bản mới nhất.",
+    false
+  );
+  setTimeout(cleanupSubmit,1200);
+},15000);
+
 });
 </script></body></html>
