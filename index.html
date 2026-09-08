@@ -1,6 +1,6 @@
 <!doctype html><html lang="vi"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0f172a"><title>Thu thập thông tin ứng viên V4.3</title>
+<meta name="theme-color" content="#0f172a"><title>Thu thập thông tin ứng viên V4.5</title>
 <style>
 :root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:#0f172a}
 *{box-sizing:border-box}body{margin:0;min-height:100vh;background:linear-gradient(135deg,#0f172a,#172554 55%,#1e3a8a);padding:18px 10px}
@@ -17,7 +17,7 @@ button{height:48px;border:0;border-radius:11px;padding:0 18px;font-size:14px;fon
 .spinner{display:inline-block;width:13px;height:13px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-2px;animation:spin .7s linear infinite;margin-right:6px}@keyframes spin{to{transform:rotate(360deg)}}
 @media(max-width:680px){.grid{grid-template-columns:1fr}.actions{flex-direction:column}body{padding:8px}.form{padding:15px}h1{font-size:20px}}
 </style></head><body><main class="card">
-<header class="header"><span class="badge">V4.3 • GOOGLE SHEETS</span><h1>PHIẾU THU THẬP THÔNG TIN ỨNG VIÊN</h1><p class="sub">CCCD là khóa dữ liệu. Kiểm tra kỹ trước khi gửi.</p></header>
+<header class="header"><span class="badge">V4.5 • GOOGLE SHEETS</span><h1>PHIẾU THU THẬP THÔNG TIN ỨNG VIÊN</h1><p class="sub">CCCD là khóa dữ liệu. Kiểm tra kỹ trước khi gửi.</p></header>
 <form id="candidateForm" class="form" novalidate>
 <div class="grid">
 <div class="field"><label>Số CCCD <span class="req">*</span></label><input id="soCCCD" inputmode="numeric" maxlength="12" autocomplete="off" required placeholder="12 chữ số"><div class="hint">Bắt buộc đúng 12 chữ số và không được trùng.</div></div>
@@ -132,14 +132,24 @@ const btn=$("submitBtn");btn.disabled=true;btn.innerHTML='<span class="spinner">
 
 // Gửi bằng HTML form tới iframe ẩn để tránh lỗi CORS của Google Apps Script.
 const API_URL="https://script.google.com/macros/s/AKfycbwGy_wVHRvjAW4hfDI1JJCIsD_CyW3nIbCY5VoSucUc1EXjFGGJNRNm_1MbRRW2xgPY8A/exec";
+
+// Cơ chế V4.5:
+// POST bằng form ẩn để tránh CORS.
+// Sau đó dùng JSONP GET để hỏi Apps Script trạng thái theo requestId.
+// Như vậy không phụ thuộc postMessage/HtmlService iframe.
+const requestId="CNV-"+Date.now()+"-"+Math.random().toString(36).slice(2,10);
+
+payload["Request ID"]=requestId;
+
 let submitFrame=null;
 let submitForm=null;
+let pollTimer=null;
+let pollCount=0;
 let submitFinished=false;
-let submitTimer=null;
 
 function cleanupSubmit(){
-  if(submitTimer) clearTimeout(submitTimer);
-  submitTimer=null;
+  if(pollTimer) clearTimeout(pollTimer);
+  pollTimer=null;
   if(submitForm){ submitForm.remove(); submitForm=null; }
   if(submitFrame){ submitFrame.remove(); submitFrame=null; }
 }
@@ -150,14 +160,11 @@ function showServerResult(message, ok){
   show(message, ok ? "ok" : "err");
 }
 
-window.addEventListener("message",(event)=>{
-  if(!event.data || event.data.type!=="candidate_submit_result") return;
-  if(submitFinished) return;
+function finishSubmit(result){
+  if(submitFinished)return;
   submitFinished=true;
 
-  const result=event.data;
-
-  if(result.ok){
+  if(result && result.ok){
     showServerResult(
       "✅ GỬI THÀNH CÔNG! Hồ sơ đã được ghi vào Google Sheets."+
       (result.timestamp ? " Thời gian: "+result.timestamp : ""),
@@ -167,14 +174,64 @@ window.addEventListener("message",(event)=>{
     $("thongTinGioiThieu").classList.add("hidden");
     $("kenhKhac").classList.add("hidden");
   }else{
-    const msg=result.duplicate
+    const msg=result && result.duplicate
       ? "⚠️ Hồ sơ chưa được ghi. CCCD này đã tồn tại trong Google Sheets."
-      : "❌ Gửi hồ sơ thất bại: "+(result.error || "Không xác định được lỗi máy chủ.");
+      : "❌ Gửi hồ sơ thất bại: "+((result&&result.error)||"Không xác định được lỗi máy chủ.");
     showServerResult(msg,false);
   }
 
   setTimeout(cleanupSubmit,1200);
-});
+}
+
+// JSONP callback. Apps Script gọi hàm này từ doGet().
+window.candidateSubmitCallback=function(result){
+  finishSubmit(result);
+};
+
+function pollServerResult(){
+  if(submitFinished)return;
+
+  pollCount++;
+
+  const old=document.getElementById("gs_jsonp_"+requestId);
+  if(old)old.remove();
+
+  const script=document.createElement("script");
+  script.id="gs_jsonp_"+requestId;
+  script.src=API_URL+
+    "?action=status"+
+    "&requestId="+encodeURIComponent(requestId)+
+    "&callback=candidateSubmitCallback"+
+    "&_="+Date.now();
+
+  script.onerror=function(){
+    if(submitFinished)return;
+    // Không kết luận thất bại ngay vì Google có thể đang redirect.
+    if(pollCount>=15){
+      finishSubmit({
+        ok:false,
+        error:"Không nhận được phản hồi xác nhận từ Google Apps Script. Hãy kiểm tra Deploy và mục Executions."
+      });
+      return;
+    }
+    pollTimer=setTimeout(pollServerResult,1000);
+  };
+
+  document.body.appendChild(script);
+
+  if(pollCount>=15){
+    pollTimer=setTimeout(function(){
+      if(!submitFinished){
+        finishSubmit({
+          ok:false,
+          error:"Đã chờ 15 giây nhưng chưa nhận được xác nhận từ máy chủ."
+        });
+      }
+    },2000);
+  }else{
+    pollTimer=setTimeout(pollServerResult,1000);
+  }
+}
 
 submitFrame=document.createElement("iframe");
 submitFrame.name="gs_submit_frame_"+Date.now();
@@ -197,20 +254,14 @@ Object.keys(payload).forEach(k=>{
 
 document.body.appendChild(submitForm);
 btn.disabled=true;
-btn.textContent="ĐANG GỬI...";
+btn.textContent="ĐANG LƯU...";
 submitFinished=false;
+pollCount=0;
+
 submitForm.submit();
 
-// Chỉ coi là thành công khi doPost() ghi Sheet xong và gửi postMessage.
-submitTimer=setTimeout(()=>{
-  if(submitFinished) return;
-  submitFinished=true;
-  showServerResult(
-    "⚠️ Chưa nhận được xác nhận từ máy chủ. Hãy kiểm tra Apps Script → Executions để xem lỗi và đảm bảo Web App đang chạy phiên bản mới nhất.",
-    false
-  );
-  setTimeout(cleanupSubmit,1200);
-},15000);
+// Bắt đầu hỏi trạng thái sau khi POST đã được gửi.
+setTimeout(pollServerResult,800);
 
 });
 </script></body></html>
