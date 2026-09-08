@@ -17,7 +17,7 @@ button{height:48px;border:0;border-radius:11px;padding:0 18px;font-size:14px;fon
 .spinner{display:inline-block;width:13px;height:13px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-2px;animation:spin .7s linear infinite;margin-right:6px}@keyframes spin{to{transform:rotate(360deg)}}
 @media(max-width:680px){.grid{grid-template-columns:1fr}.actions{flex-direction:column}body{padding:8px}.form{padding:15px}h1{font-size:20px}}
 </style></head><body><main class="card">
-<header class="header"><span class="badge">V5.3 • GOOGLE SHEETS • ZALO TEST</span><h1>PHIẾU THU THẬP THÔNG TIN ỨNG VIÊN</h1><p class="sub">CCCD là khóa dữ liệu. Kiểm tra kỹ trước khi gửi.</p></header>
+<header class="header"><span class="badge">V5.3.1 • GOOGLE SHEETS • ZALO TEST</span><h1>PHIẾU THU THẬP THÔNG TIN ỨNG VIÊN</h1><p class="sub">CCCD là khóa dữ liệu. Kiểm tra kỹ trước khi gửi.</p></header>
 <form id="candidateForm" class="form" novalidate>
 <div class="grid">
 <div class="field"><label>Số CCCD <span class="req">*</span></label><input id="soCCCD" inputmode="numeric" maxlength="12" autocomplete="off" required placeholder="12 chữ số"><div class="hint">Bắt buộc đúng 12 chữ số và không được trùng.</div></div>
@@ -130,13 +130,15 @@ if(isInternal&&!valid(sdtGT,10))return bad("soDienThoaiNguoiGioiThieu","Số đi
 const payload={"Số CCCD":cccd,"Họ và Tên":titleVI($("hoTen").value),"Số Điện Thoại":phone,"Số Điện Thoại Người Thân":rel,"Tỉnh/Thành Phố":$("tinhThanh").value,"Xã/Phường/Đặc Khu":titleVI($("xaPhuong").value),"Thôn/Tổ Dân Phố":titleVI($("thonToDanPho").value),"Trình Độ Học Vấn":$("trinhDo").value,"Tên Trường":titleVI($("tenTruong").value),"Mã Số BHXH":bhxh,"Kênh Tuyển Dụng":channel,"Công Ty Làm Gần Nhất":company,"Mã NV Người Giới Thiệu":isInternal?maNVGT:"","Họ và Tên Người Giới Thiệu":isInternal?hoTenGT:"","Số Điện Thoại Người Giới Thiệu":isInternal?sdtGT:""};
 const btn=$("submitBtn");btn.disabled=true;btn.innerHTML='<span class="spinner"></span>ĐANG LƯU...';show("Đang gửi hồ sơ lên máy chủ...","wait");
 
-// API Google Apps Script dùng chung cho mọi trình duyệt (Safari, Chrome, Zalo WebView).
+// API Google Apps Script dùng chung cho mọi trình duyệt (Chrome, Cốc Cốc, Zalo WebView).
 const API_URL="https://script.google.com/macros/s/AKfycbwGy_wVHRvjAW4hfDI1JJCIsD_CyW3nIbCY5VoSucUc1EXjFGGJNRNm_1MbRRW2xgPY8A/exec";
 
-// Cơ chế V4.5:
-// POST bằng form ẩn để tránh CORS.
+// V5.3.1:
+// POST bằng FORM HTML tới iframe ẩn. Đây là cơ chế trình duyệt native,
+// không cần CORS và không cần đọc nội dung iframe.
 // Sau đó dùng JSONP GET để hỏi Apps Script trạng thái theo requestId.
-// Như vậy không phụ thuộc postMessage/HtmlService iframe.
+// Cách này giữ nguyên đường ghi dữ liệu đang chạy tốt trên Chrome/Cốc Cốc
+// và tránh phụ thuộc fetch(no-cors) trong Zalo WebView.
 const requestId="CNV-"+Date.now()+"-"+Math.random().toString(36).slice(2,10);
 
 payload["Request ID"]=requestId;
@@ -197,7 +199,7 @@ function pollServerResult(){
     "&_="+Date.now();
   script.onerror=function(){
     if(submitFinished)return;
-    if(pollCount>=25){
+    if(pollCount>=40){
       finishSubmit({ok:false,error:"Không nhận được xác nhận từ Google Apps Script. Kiểm tra mục Executions trong Apps Script."});
       return;
     }
@@ -206,30 +208,53 @@ function pollServerResult(){
   if(!submitFinished)pollTimer=setTimeout(pollServerResult,800);
 }
 
-// V5.3: không dùng hidden iframe để POST nữa.
-// Gửi application/x-www-form-urlencoded bằng fetch no-cors.
-// Cách này không cần đọc response của Google, nên tránh lỗi WebView/Zalo khi xử lý iframe/redirect.
-const body=new URLSearchParams();
-Object.keys(payload).forEach(k=>body.append(k,payload[k]??""));
+// V5.3.1: gửi POST bằng form HTML native tới iframe ẩn.
+// Không dùng fetch/no-cors vì một số WebView có thể giữ request nhưng
+// không xử lý ổn định promise/keepalive. Form native giúp trình duyệt
+// thực hiện POST trực tiếp; kết quả thật được xác nhận bằng JSONP status.
+const postFrame=document.createElement("iframe");
+postFrame.name="candidatePostFrame_"+requestId;
+postFrame.id="candidatePostFrame_"+requestId;
+postFrame.style.display="none";
+postFrame.setAttribute("aria-hidden","true");
+document.body.appendChild(postFrame);
 
-btn.disabled=true;
-btn.textContent="ĐANG LƯU...";
-submitFinished=false;
-pollCount=0;
+const postForm=document.createElement("form");
+postForm.method="POST";
+postForm.action=API_URL;
+postForm.target=postFrame.name;
+postForm.enctype="application/x-www-form-urlencoded";
+postForm.acceptCharset="UTF-8";
+postForm.style.display="none";
 
-fetch(API_URL,{
-  method:"POST",
-  mode:"no-cors",
-  headers:{"Content-Type":"application/x-www-form-urlencoded;charset=UTF-8"},
-  body:body.toString(),
-  credentials:"omit",
-  cache:"no-store",
-  keepalive:true
-}).then(function(){
-  // fetch no-cors trả opaque response; không đọc response, chỉ bắt đầu polling status.
-  setTimeout(pollServerResult,700);
-}).catch(function(err){
-  finishSubmit({ok:false,error:"Trình duyệt không gửi được dữ liệu tới máy chủ. Vui lòng mở bằng Chrome/Cốc Cốc hoặc thử lại. "+(err&&err.message?err.message:"")});
+Object.keys(payload).forEach(function(k){
+  const input=document.createElement("input");
+  input.type="hidden";
+  input.name=k;
+  input.value=payload[k] == null ? "" : String(payload[k]);
+  postForm.appendChild(input);
 });
+
+document.body.appendChild(postForm);
+
+// Bắt đầu hỏi trạng thái độc lập với iframe POST.
+// Không cần chờ đọc iframe; Apps Script sẽ lưu kết quả vào Script Cache.
+setTimeout(pollServerResult,700);
+
+// Submit native form.
+try{
+  postForm.submit();
+}catch(err){
+  finishSubmit({
+    ok:false,
+    error:"Trình duyệt không thể gửi biểu mẫu tới máy chủ. Vui lòng thử lại."
+  });
+}
+
+// Dọn phần tử tạm sau khi đã đủ thời gian để request hoàn tất.
+setTimeout(function(){
+  if(postForm.parentNode)postForm.remove();
+  if(postFrame.parentNode)postFrame.remove();
+},35000);
 });
 </script></body></html>
