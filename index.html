@@ -49,7 +49,8 @@ button{height:48px;border:0;border-radius:11px;padding:0 18px;font-size:14px;fon
 <div class="field"><label>Tên Trường</label><input id="tenTruong" placeholder="Tên trường tốt nghiệp cao nhất"></div>
 </div>
 <div class="grid">
-<div class="field"><label>Mã Số BHXH</label><input id="maBHXH" inputmode="numeric" maxlength="10" placeholder="Không bắt buộc"><div class="hint">Nếu có: đúng 10 chữ số.</div></div>
+<div class="field"><label>Mã Số BHXH</label><input id="maBHXH" inputmode="numeric" maxlength="12" placeholder="Không bắt buộc">
+<div class="hint">Nếu có: đúng 10 hoặc 12 chữ số.</div></div>
 <div class="field"><label>Kênh Tuyển Dụng <span class="req">*</span></label><select id="kenhTuyenDung" required><option value="">-- Chọn kênh --</option><option value="Tự ứng tuyển">Tự ứng tuyển</option><option value="Giới thiệu nội bộ">Giới thiệu nội bộ</option><option value="ZM">ZM</option><option value="WEVN">WEVN</option><option value="SUCCESS">SUCCESS</option><option value="GTV (việc ba miền)">GTV (việc ba miền)</option><option value="VT (Việt thông)">VT (Việt thông)</option><option value="Khác">Khác</option></select><input id="kenhKhac" class="hidden" style="margin-top:8px" placeholder="Nhập kênh tuyển dụng khác"></div>
 <div id="thongTinGioiThieu" class="hidden" style="grid-column:1/-1"><div class="grid"><div class="field"><label>Mã nhân viên người giới thiệu <span class="req">*</span></label><input id="maNVNguoiGioiThieu" maxlength="8" autocomplete="off" placeholder="VN + 6 chữ số"><div class="hint">Định dạng bắt buộc: VN123456.</div></div><div class="field"><label>Họ và Tên người giới thiệu <span class="req">*</span></label><input id="hoTenNguoiGioiThieu" autocomplete="name" placeholder="Nhập họ và tên người giới thiệu"></div></div><div class="field"><label>Số điện thoại người giới thiệu <span class="req">*</span></label><input id="soDienThoaiNguoiGioiThieu" inputmode="numeric" maxlength="10" autocomplete="tel" placeholder="10 chữ số"></div></div>
 </div>
@@ -124,7 +125,7 @@ if(!$("tinhThanh").value)return bad("tinhThanh","Vui lòng chọn Tỉnh/Thành 
 if(!norm($("xaPhuong").value))return bad("xaPhuong","Vui lòng nhập Xã/Phường/Đặc Khu.");
 if(!norm($("thonToDanPho").value))return bad("thonToDanPho","Vui lòng nhập Thôn/Tổ Dân Phố.");
 if(!$("trinhDo").value)return bad("trinhDo","Vui lòng chọn Trình Độ Học Vấn.");
-if(bhxh&&!valid(bhxh,10))return bad("maBHXH","Mã Số BHXH nếu nhập phải đúng 10 hoặc 12 chữ số.");
+if(bhxh&&!(valid(bhxh,10)||valid(bhxh,12)))return bad("maBHXH","Mã Số BHXH nếu nhập phải đúng 10 hoặc 12 chữ số.");
 const channel=$("kenhTuyenDung").value==="Khác"?norm($("kenhKhac").value):$("kenhTuyenDung").value;
 const company=$("congTyGanNhat").value==="Khác"?norm($("congTyKhac").value):$("congTyGanNhat").value;
 if(!channel)return bad("kenhKhac","Vui lòng nhập Kênh Tuyển Dụng khác.");
