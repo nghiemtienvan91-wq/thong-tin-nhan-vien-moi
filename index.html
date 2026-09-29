@@ -124,7 +124,7 @@ if(!$("tinhThanh").value)return bad("tinhThanh","Vui lòng chọn Tỉnh/Thành 
 if(!norm($("xaPhuong").value))return bad("xaPhuong","Vui lòng nhập Xã/Phường/Đặc Khu.");
 if(!norm($("thonToDanPho").value))return bad("thonToDanPho","Vui lòng nhập Thôn/Tổ Dân Phố.");
 if(!$("trinhDo").value)return bad("trinhDo","Vui lòng chọn Trình Độ Học Vấn.");
-if(bhxh&&!valid(bhxh,10))return bad("maBHXH","Mã Số BHXH nếu nhập phải đúng 10 chữ số.");
+if(bhxh&&!valid(bhxh,10))return bad("maBHXH","Mã Số BHXH nếu nhập phải đúng 10 hoặc 12 chữ số.");
 const channel=$("kenhTuyenDung").value==="Khác"?norm($("kenhKhac").value):$("kenhTuyenDung").value;
 const company=$("congTyGanNhat").value==="Khác"?norm($("congTyKhac").value):$("congTyGanNhat").value;
 if(!channel)return bad("kenhKhac","Vui lòng nhập Kênh Tuyển Dụng khác.");
